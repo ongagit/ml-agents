@@ -11,41 +11,6 @@ using Assert = UnityEngine.Assertions.Assert;
 
 namespace Unity.MLAgents.Tests.Actuators
 {
-    internal class TestActuator : IActuator
-    {
-        public ActionBuffers LastActionBuffer;
-        public int[][] Masks;
-        public TestActuator(ActionSpaceDef actuatorSpace, string name)
-        {
-            ActionSpaceDef = actuatorSpace;
-            TotalNumberOfActions = actuatorSpace.NumContinuousActions +
-                actuatorSpace.NumDiscreteActions;
-            Name = name;
-        }
-
-        public void OnActionReceived(ActionBuffers actionBuffers)
-        {
-            LastActionBuffer = actionBuffers;
-        }
-
-        public void WriteDiscreteActionMask(IDiscreteActionMask actionMask)
-        {
-            for (var i = 0; i < Masks.Length; i++)
-            {
-                actionMask.WriteMask(i, Masks[i]);
-            }
-        }
-
-        public int TotalNumberOfActions { get; }
-        public ActionSpaceDef ActionSpaceDef { get; }
-
-        public string Name { get; }
-
-        public void ResetData()
-        {
-        }
-    }
-
     [TestFixture]
     public class ActuatorManagerTests
     {
@@ -53,13 +18,13 @@ namespace Unity.MLAgents.Tests.Actuators
         public void TestEnsureBufferSizeContinuous()
         {
             var manager = new ActuatorManager();
-            var actuator1 = new TestActuator(ActionSpaceDef.MakeContinuous(10), "actuator1");
-            var actuator2 = new TestActuator(ActionSpaceDef.MakeContinuous(2), "actuator2");
+            var actuator1 = new TestActuator(ActionSpecs.MakeContinuous(10), "actuator1");
+            var actuator2 = new TestActuator(ActionSpecs.MakeContinuous(2), "actuator2");
             manager.Add(actuator1);
             manager.Add(actuator2);
-            var actuator1ActionSpaceDef = actuator1.ActionSpaceDef;
-            var actuator2ActionSpaceDef = actuator2.ActionSpaceDef;
-            manager.EnsureActionBufferSize(new[] { actuator1, actuator2 },
+            var actuator1ActionSpaceDef = actuator1.actionSpecs;
+            var actuator2ActionSpaceDef = actuator2.actionSpecs;
+            manager.ReadyActuatorsForExecution(new[] { actuator1, actuator2 },
                 actuator1ActionSpaceDef.NumContinuousActions + actuator2ActionSpaceDef.NumContinuousActions,
                 actuator1ActionSpaceDef.SumOfDiscreteBranchSizes + actuator2ActionSpaceDef.SumOfDiscreteBranchSizes,
                 actuator1ActionSpaceDef.NumDiscreteActions + actuator2ActionSpaceDef.NumDiscreteActions);
@@ -78,13 +43,13 @@ namespace Unity.MLAgents.Tests.Actuators
         public void TestEnsureBufferDiscrete()
         {
             var manager = new ActuatorManager();
-            var actuator1 = new TestActuator(ActionSpaceDef.MakeDiscrete(new[] {1 , 2, 3, 4}), "actuator1");
-            var actuator2 = new TestActuator(ActionSpaceDef.MakeDiscrete(new[] {1, 1, 1}), "actuator2");
+            var actuator1 = new TestActuator(ActionSpecs.MakeDiscrete(new[] {1 , 2, 3, 4}), "actuator1");
+            var actuator2 = new TestActuator(ActionSpecs.MakeDiscrete(new[] {1, 1, 1}), "actuator2");
             manager.Add(actuator1);
             manager.Add(actuator2);
-            var actuator1ActionSpaceDef = actuator1.ActionSpaceDef;
-            var actuator2ActionSpaceDef = actuator2.ActionSpaceDef;
-            manager.EnsureActionBufferSize(new[] { actuator1, actuator2 },
+            var actuator1ActionSpaceDef = actuator1.actionSpecs;
+            var actuator2ActionSpaceDef = actuator2.actionSpecs;
+            manager.ReadyActuatorsForExecution(new[] { actuator1, actuator2 },
                 actuator1ActionSpaceDef.NumContinuousActions + actuator2ActionSpaceDef.NumContinuousActions,
                 actuator1ActionSpaceDef.SumOfDiscreteBranchSizes + actuator2ActionSpaceDef.SumOfDiscreteBranchSizes,
                 actuator1ActionSpaceDef.NumDiscreteActions + actuator2ActionSpaceDef.NumDiscreteActions);
@@ -103,11 +68,11 @@ namespace Unity.MLAgents.Tests.Actuators
         public void TestFailOnMixedActionSpace()
         {
             var manager = new ActuatorManager();
-            var actuator1 = new TestActuator(ActionSpaceDef.MakeDiscrete(new[] {1 , 2, 3, 4}), "actuator1");
-            var actuator2 = new TestActuator(ActionSpaceDef.MakeContinuous(3), "actuator2");
+            var actuator1 = new TestActuator(ActionSpecs.MakeDiscrete(new[] {1 , 2, 3, 4}), "actuator1");
+            var actuator2 = new TestActuator(ActionSpecs.MakeContinuous(3), "actuator2");
             manager.Add(actuator1);
             manager.Add(actuator2);
-            manager.EnsureActionBufferSize(new[] { actuator1, actuator2 }, 3, 10, 4);
+            manager.ReadyActuatorsForExecution(new[] { actuator1, actuator2 }, 3, 10, 4);
             LogAssert.Expect(LogType.Assert, "Actuators on the same Agent must have the same action SpaceType.");
         }
 
@@ -115,11 +80,11 @@ namespace Unity.MLAgents.Tests.Actuators
         public void TestFailOnSameActuatorName()
         {
             var manager = new ActuatorManager();
-            var actuator1 = new TestActuator(ActionSpaceDef.MakeContinuous(3), "actuator1");
-            var actuator2 = new TestActuator(ActionSpaceDef.MakeContinuous(3), "actuator1");
+            var actuator1 = new TestActuator(ActionSpecs.MakeContinuous(3), "actuator1");
+            var actuator2 = new TestActuator(ActionSpecs.MakeContinuous(3), "actuator1");
             manager.Add(actuator1);
             manager.Add(actuator2);
-            manager.EnsureActionBufferSize(new[] { actuator1, actuator2 }, 3, 10, 4);
+            manager.ReadyActuatorsForExecution(new[] { actuator1, actuator2 }, 3, 10, 4);
             LogAssert.Expect(LogType.Assert, "Actuator names must be unique.");
         }
 
@@ -127,8 +92,8 @@ namespace Unity.MLAgents.Tests.Actuators
         public void TestExecuteActionsDiscrete()
         {
             var manager = new ActuatorManager();
-            var actuator1 = new TestActuator(ActionSpaceDef.MakeDiscrete(new[] {1 , 2, 3, 4}), "actuator1");
-            var actuator2 = new TestActuator(ActionSpaceDef.MakeDiscrete(new[] {1, 1, 1}), "actuator2");
+            var actuator1 = new TestActuator(ActionSpecs.MakeDiscrete(new[] {1 , 2, 3, 4}), "actuator1");
+            var actuator2 = new TestActuator(ActionSpecs.MakeDiscrete(new[] {1, 1, 1}), "actuator2");
             manager.Add(actuator1);
             manager.Add(actuator2);
 
@@ -146,9 +111,9 @@ namespace Unity.MLAgents.Tests.Actuators
         public void TestExecuteActionsContinuous()
         {
             var manager = new ActuatorManager();
-            var actuator1 = new TestActuator(ActionSpaceDef.MakeContinuous(3),
+            var actuator1 = new TestActuator(ActionSpecs.MakeContinuous(3),
                 "actuator1");
-            var actuator2 = new TestActuator(ActionSpaceDef.MakeContinuous(3), "actuator2");
+            var actuator2 = new TestActuator(ActionSpecs.MakeContinuous(3), "actuator2");
             manager.Add(actuator1);
             manager.Add(actuator2);
 
@@ -178,9 +143,9 @@ namespace Unity.MLAgents.Tests.Actuators
         public void TestUpdateActionsContinuous()
         {
             var manager = new ActuatorManager();
-            var actuator1 = new TestActuator(ActionSpaceDef.MakeContinuous(3),
+            var actuator1 = new TestActuator(ActionSpecs.MakeContinuous(3),
                 "actuator1");
-            var actuator2 = new TestActuator(ActionSpaceDef.MakeContinuous(3), "actuator2");
+            var actuator2 = new TestActuator(ActionSpecs.MakeContinuous(3), "actuator2");
             manager.Add(actuator1);
             manager.Add(actuator2);
             var continuousActionBuffer = new[] { 0f, 1f, 2f, 3f, 4f, 5f};
@@ -194,9 +159,9 @@ namespace Unity.MLAgents.Tests.Actuators
         public void TestUpdateActionsDiscrete()
         {
             var manager = new ActuatorManager();
-            var actuator1 = new TestActuator(ActionSpaceDef.MakeDiscrete(new[] { 1, 2, 3 }),
+            var actuator1 = new TestActuator(ActionSpecs.MakeDiscrete(new[] { 1, 2, 3 }),
                 "actuator1");
-            var actuator2 = new TestActuator(ActionSpaceDef.MakeDiscrete(new[] {1, 2, 3}), "actuator2");
+            var actuator2 = new TestActuator(ActionSpecs.MakeDiscrete(new[] {1, 2, 3}), "actuator2");
             manager.Add(actuator1);
             manager.Add(actuator2);
             var discreteActionBuffer = new[] { 0, 1, 2, 3, 4, 5};
@@ -212,9 +177,9 @@ namespace Unity.MLAgents.Tests.Actuators
         public void TestRemove()
         {
             var manager = new ActuatorManager();
-            var actuator1 = new TestActuator(ActionSpaceDef.MakeDiscrete(new[] { 1, 2, 3 }),
+            var actuator1 = new TestActuator(ActionSpecs.MakeDiscrete(new[] { 1, 2, 3 }),
                 "actuator1");
-            var actuator2 = new TestActuator(ActionSpaceDef.MakeDiscrete(new[] {1, 2, 3}), "actuator2");
+            var actuator2 = new TestActuator(ActionSpecs.MakeDiscrete(new[] {1, 2, 3}), "actuator2");
 
             manager.Add(actuator1);
             manager.Add(actuator2);
@@ -240,9 +205,9 @@ namespace Unity.MLAgents.Tests.Actuators
         public void TestClear()
         {
             var manager = new ActuatorManager();
-            var actuator1 = new TestActuator(ActionSpaceDef.MakeDiscrete(new[] { 1, 2, 3 }),
+            var actuator1 = new TestActuator(ActionSpecs.MakeDiscrete(new[] { 1, 2, 3 }),
                 "actuator1");
-            var actuator2 = new TestActuator(ActionSpaceDef.MakeDiscrete(new[] {1, 2, 3}), "actuator2");
+            var actuator2 = new TestActuator(ActionSpecs.MakeDiscrete(new[] {1, 2, 3}), "actuator2");
             manager.Add(actuator1);
             manager.Add(actuator2);
 
@@ -259,9 +224,9 @@ namespace Unity.MLAgents.Tests.Actuators
         public void TestIndexSet()
         {
             var manager = new ActuatorManager();
-            var actuator1 = new TestActuator(ActionSpaceDef.MakeDiscrete(new[] { 1, 2, 3, 4}),
+            var actuator1 = new TestActuator(ActionSpecs.MakeDiscrete(new[] { 1, 2, 3, 4}),
                 "actuator1");
-            var actuator2 = new TestActuator(ActionSpaceDef.MakeDiscrete(new[] {1, 2, 3}), "actuator2");
+            var actuator2 = new TestActuator(ActionSpecs.MakeDiscrete(new[] {1, 2, 3}), "actuator2");
             manager.Add(actuator1);
             Assert.IsTrue(manager.NumDiscreteBranches == 4);
             Assert.IsTrue(manager.SumOfDiscreteBranchSizes == 10);
@@ -274,9 +239,9 @@ namespace Unity.MLAgents.Tests.Actuators
         public void TestInsert()
         {
             var manager = new ActuatorManager();
-            var actuator1 = new TestActuator(ActionSpaceDef.MakeDiscrete(new[] { 1, 2, 3, 4}),
+            var actuator1 = new TestActuator(ActionSpecs.MakeDiscrete(new[] { 1, 2, 3, 4}),
                 "actuator1");
-            var actuator2 = new TestActuator(ActionSpaceDef.MakeDiscrete(new[] {1, 2, 3}), "actuator2");
+            var actuator2 = new TestActuator(ActionSpecs.MakeDiscrete(new[] {1, 2, 3}), "actuator2");
             manager.Add(actuator1);
             Assert.IsTrue(manager.NumDiscreteBranches == 4);
             Assert.IsTrue(manager.SumOfDiscreteBranchSizes == 10);
@@ -290,9 +255,9 @@ namespace Unity.MLAgents.Tests.Actuators
         public void TestResetData()
         {
             var manager = new ActuatorManager();
-            var actuator1 = new TestActuator(ActionSpaceDef.MakeContinuous(3),
+            var actuator1 = new TestActuator(ActionSpecs.MakeContinuous(3),
                 "actuator1");
-            var actuator2 = new TestActuator(ActionSpaceDef.MakeContinuous(3), "actuator2");
+            var actuator2 = new TestActuator(ActionSpecs.MakeContinuous(3), "actuator2");
             manager.Add(actuator1);
             manager.Add(actuator2);
             var continuousActionBuffer = new[] { 0f, 1f, 2f, 3f, 4f, 5f};
@@ -310,8 +275,8 @@ namespace Unity.MLAgents.Tests.Actuators
         public void TestWriteDiscreteActionMask()
         {
             var manager = new ActuatorManager(2);
-            var va1 = new TestActuator(ActionSpaceDef.MakeDiscrete(new[] {1, 2, 3}), "name");
-            var va2 = new TestActuator(ActionSpaceDef.MakeDiscrete(new[] {3, 2, 1}), "name1");
+            var va1 = new TestActuator(ActionSpecs.MakeDiscrete(new[] {1, 2, 3}), "name");
+            var va2 = new TestActuator(ActionSpecs.MakeDiscrete(new[] {3, 2, 1}), "name1");
             manager.Add(va1);
             manager.Add(va2);
 

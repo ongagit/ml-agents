@@ -57,6 +57,10 @@ namespace Unity.MLAgents
             m_Delegate.ResetMask();
         }
 
-        public int CurrentBranchOffset => m_Delegate.CurrentBranchOffset;
+        public int CurrentBranchOffset
+        {
+            get => m_Delegate.CurrentBranchOffset;
+            set => m_Delegate.CurrentBranchOffset = value;
+        }
     }
 }

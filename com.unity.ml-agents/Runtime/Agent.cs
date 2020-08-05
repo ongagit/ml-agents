@@ -59,13 +59,20 @@ namespace Unity.MLAgents
         public void CopyActions(float[] continuousActions, int[] discreteActions)
         {
             var start = 0;
-            Array.Copy(continuousActions, 0, storedVectorActions, start, continuousActions.Length);
-            start = continuousActions.Length;
+            if (continuousActions != null)
+            {
+                Array.Copy(continuousActions, 0, storedVectorActions, start, continuousActions.Length);
+                start = continuousActions.Length;
+            }
             if (start >= storedVectorActions.Length)
             {
                 return;
             }
-            Array.Copy(discreteActions, 0, storedVectorActions, continuousActions.Length, discreteActions.Length);
+
+            if (continuousActions != null)
+            {
+                Array.Copy(discreteActions, 0, storedVectorActions, continuousActions.Length, discreteActions.Length);
+            }
         }
     }
 
@@ -1108,6 +1115,7 @@ namespace Unity.MLAgents
             #pragma warning restore 618
         }
 
+        ActionSpecs IActionReceiver.actionSpecs { get; }
 
         /// <summary>
         /// Implement `OnActionReceived()` to specify agent behavior at every step, based
