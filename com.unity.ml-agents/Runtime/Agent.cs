@@ -58,7 +58,13 @@ namespace Unity.MLAgents
 
         public void CopyActions(float[] continuousActions, int[] discreteActions)
         {
-            Array.Copy(continuousActions, 0, storedVectorActions, 0, continuousActions.Length);
+            var start = 0;
+            Array.Copy(continuousActions, 0, storedVectorActions, start, continuousActions.Length);
+            start = continuousActions.Length;
+            if (start >= storedVectorActions.Length)
+            {
+                return;
+            }
             Array.Copy(discreteActions, 0, storedVectorActions, continuousActions.Length, discreteActions.Length);
         }
     }
@@ -910,6 +916,7 @@ namespace Unity.MLAgents
 
 #if DEBUG
             // Make sure the names are actually unique
+
             for (var i = 0; i < sensors.Count - 1; i++)
             {
                 Debug.Assert(
@@ -943,17 +950,6 @@ namespace Unity.MLAgents
             {
                 m_Actuators.Add(actuatorComponent.CreateActuator());
             }
-
-#if DEBUG
-            // Make sure the names are actually unique
-            // Make sure all Actuators have the same SpaceType
-            m_Actuators.ValidateActuators();
-#endif
-
-            m_Actuators.EnsureActionBufferSize();
-            // Sort the Actuators by name to ensure determinism
-            m_Actuators.SortActuators();
-
         }
 
         /// <summary>
